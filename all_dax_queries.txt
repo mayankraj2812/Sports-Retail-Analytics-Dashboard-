@@ -1,0 +1,139 @@
+/* ==========================================================================
+   All DAX used
+   - 9 measures, all stored in the "_Calculations" table
+   - 1 calculated table ("Calendar")
+   - 0 calculated columns (none exist in this model)
+   ========================================================================== */
+
+
+/* ============================================================
+   MEASURES  (Table: _Calculations)
+   ============================================================ */
+
+-- ------------------------------------------------------------
+-- Number of Customer Journeys
+-- Distinct count of journey records (visits/sessions)
+-- ------------------------------------------------------------
+Number of Customer Journeys = 
+DISTINCTCOUNT( fact_customer_journey[JourneyID] )
+
+
+-- ------------------------------------------------------------
+-- Number of Customer Reviews
+-- Distinct count of reviews submitted
+-- ------------------------------------------------------------
+Number of Customer Reviews = 
+DISTINCTCOUNT( fact_customer_reviews_with_sentiment[ReviewID] )
+
+
+-- ------------------------------------------------------------
+-- Number of Campaigns
+-- Distinct count of marketing campaigns
+-- ------------------------------------------------------------
+Number of Campaigns = 
+DISTINCTCOUNT( fact_engagement[CampaignID] )
+
+
+-- ------------------------------------------------------------
+-- Number of Campaign Engagements
+-- Distinct count of engagement events (views/clicks/likes records)
+-- ------------------------------------------------------------
+Number of Campaign Engagements = 
+DISTINCTCOUNT( fact_engagement[EngagementID] )
+
+
+-- ------------------------------------------------------------
+-- Conversion Rate
+-- Purchases divided by Views within the journey funnel, with a
+-- guard against divide-by-zero when there's no data in context
+-- ------------------------------------------------------------
+Conversion Rate = 
+VAR TotalVisitors = 
+    CALCULATE( 
+        COUNT( fact_customer_journey[JourneyID] ), 
+        fact_customer_journey[Action] = "View" 
+    )
+VAR TotalPurchases = 
+    CALCULATE(
+        COUNT( fact_customer_journey[JourneyID] ),
+        fact_customer_journey[Action] = "Purchase"
+    )
+RETURN
+    IF(
+        TotalVisitors = 0, 
+        0, 
+        DIVIDE( TotalPurchases, TotalVisitors )
+    )
+
+
+-- ------------------------------------------------------------
+-- Clicks
+-- Total clicks across engagement records
+-- ------------------------------------------------------------
+Clicks = 
+SUM( fact_engagement[Clicks] )
+
+
+-- ------------------------------------------------------------
+-- Likes
+-- Total likes across engagement records
+-- ------------------------------------------------------------
+Likes = 
+SUM( fact_engagement[Likes] )
+
+
+-- ------------------------------------------------------------
+-- Views
+-- Total views across engagement records
+-- ------------------------------------------------------------
+Views = 
+SUM( fact_engagement[Views] )
+
+
+-- ------------------------------------------------------------
+-- Rating (Average)
+-- Average customer review rating
+-- ------------------------------------------------------------
+Rating (Average) = 
+AVERAGE( fact_customer_reviews_with_sentiment[Rating] )
+
+
+
+/* ============================================================
+   CALCULATED TABLE
+   ============================================================ */
+
+-- ------------------------------------------------------------
+-- Calendar
+-- A fully DAX-generated date table spanning 2023-01-01 to
+-- 2025-12-31, with the standard set of calendar attribute
+-- columns used for slicers, sorting, and time-based visuals.
+-- ------------------------------------------------------------
+Calendar = 
+ADDCOLUMNS (
+    CALENDAR ( DATE ( 2023, 1, 1 ), DATE ( 2025, 12, 31 ) ),
+    "DateAsInteger", FORMAT ( [Date], "YYYYMMDD" ),
+    "Year", YEAR ( [Date] ),
+    "Monthnumber", FORMAT ( [Date], "MM" ),
+    "YearMonthnumber", FORMAT ( [Date], "YYYY/MM" ),
+    "YearMonthShort", FORMAT ( [Date], "YYYY/mmm" ),
+    "MonthNameShort", FORMAT ( [Date], "mmm" ),
+    "MonthNameLong", FORMAT ( [Date], "mmmm" ),
+    "DayOfWeekNumber", WEEKDAY ( [Date] ),
+    "DayOfWeek", FORMAT ( [Date], "dddd" ),
+    "DayOfWeekShort", FORMAT ( [Date], "ddd" ),
+    "Quarter", "Q" & FORMAT ( [Date], "Q" ),
+    "YearQuarter",
+        FORMAT ( [Date], "YYYY" ) & "/Q"
+            & FORMAT ( [Date], "Q" )
+)
+
+
+
+/* ============================================================
+   CALCULATED COLUMNS
+   ============================================================ */
+
+-- None exist in this model. Row-level fields like PriceCategory
+-- and ContentType were computed upstream in SQL (Power Query
+-- source queries), not as DAX calculated columns.
